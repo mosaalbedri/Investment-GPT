@@ -1,5 +1,2 @@
 flask
-openai
-llama-index
-pypdf
-tiktoken
+openai>=1.0.0
