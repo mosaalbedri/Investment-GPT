@@ -1,0 +1,51 @@
+from flask import Flask, request, jsonify
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
+from llama_index.llms.openai import OpenAI
+from llama_index.embeddings.openai import OpenAIEmbedding
+import os
+
+app = Flask(__name__)
+
+Settings.llm = OpenAI(
+    model="gpt-4o",
+    temperature=0.2
+)
+
+Settings.embed_model = OpenAIEmbedding(
+    model="text-embedding-3-large"
+)
+
+SYSTEM_PROMPT = """
+You are a Professional Investment Research Assistant designed for wealth management.
+
+You do not provide investment advice or recommendations.
+You do not predict prices or returns.
+
+Always structure analysis professionally and end with:
+"This analysis is for informational purposes only and does not constitute investment advice."
+"""
+
+docs = []
+if os.path.exists("documents"):
+    docs = SimpleDirectoryReader("documents").load_data()
+
+index = VectorStoreIndex.from_documents(docs) if docs else None
+
+@app.route("/")
+def home():
+    return "Professional Investment GPT is running."
+
+@app.route("/query", methods=["POST"])
+def query():
+    if not index:
+        return jsonify({"error": "No documents loaded yet."})
+
+    question = request.json.get("question")
+    engine = index.as_query_engine(similarity_top_k=6)
+    response = engine.query(SYSTEM_PROMPT + "\n\nUser Query:\n" + question)
+
+    return jsonify({"response": response.response})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
+
